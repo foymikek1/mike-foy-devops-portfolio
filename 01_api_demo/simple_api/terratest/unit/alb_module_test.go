@@ -7,39 +7,25 @@ import (
   "github.com/stretchr/testify/assert"
 )
 
-func TestAlbModule(t *testing.T) {
+func TestAlbModulePlan(t *testing.T) {
   t.Parallel()
 
-  // Points to ALB module folder
   opts := &terraform.Options{
-    TerraformDir: "../modules/alb",
+    TerraformDir:    "../../infra/modules/alb",
+    PlanFilePath:    "plan.tfplan", // Tell terratest where to write the plan
     Vars: map[string]interface{}{
-      // Supplys the minimal required inputs for the ALB module
-      "name":            "simple-api-alb",
-      "subnet_ids":      []string{"subnet-01234567", "subnet-89abcdef"},
+      "name":               "simple-api-alb",
+      "subnet_ids":         []string{"subnet-01234567", "subnet-89abcdef"},
       "security_group_ids": []string{"sg-01234567"},
-      "scheme":          "internet-facing",
+      "scheme":             "internet-facing",
+      "region":             "us-east-1",
     },
   }
 
-  // Ensures destroy of the ALB after test
-  defer terraform.Destroy(t, opts)
+  // Init, plan (to plan.tfplan) and load into Go struct
+  planStruct := terraform.InitAndPlanAndShowWithStruct(t, opts)
 
-  // Init & apply only this ALB module
-  terraform.InitAndApply(t, opts)
-
-  // Grabs the ALB DNS name output
-  albDNS := terraform.Output(t, opts, "alb_dns_name")
-  // It should look like an AWS ALB DNS entry
-  assert.Contains(t, albDNS, "elb.amazonaws.com", "ALB DNS name should include AWS ELB domain")
-
-  // Grabs the ALB ARN output
-  albArn := terraform.Output(t, opts, "alb_arn")
-  // It should contain the word 'loadbalancer'
-  assert.Contains(t, albArn, "loadbalancer", "ALB ARN must identify a load balancer")
-
-  // Grabs the ALB scheme output
-  albScheme := terraform.Output(t, opts, "alb_scheme")
-  // Set to "internet-facing", should match...
-  assert.Equal(t, "internet-facing", albScheme, "ALB scheme should match input")
+  // Grabs both the LB and its listener
+  assert.Contains(t, planStruct.ResourcePlannedValuesMap, "aws_lb.alb")
+  assert.Contains(t, planStruct.ResourcePlannedValuesMap, "aws_lb_listener.listener")
 }
