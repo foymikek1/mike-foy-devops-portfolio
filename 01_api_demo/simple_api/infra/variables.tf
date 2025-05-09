@@ -1,3 +1,5 @@
+# 01_api_demo/simple_api/infra/variables.tf
+
 variable "region" {
   description = "AWS region"
   type        = string
@@ -44,4 +46,51 @@ variable "cluster_name" {
   description = "Name for the ECS cluster"
   type        = string
   default     = "simple-api-cluster"
+}
+
+# ---------------------------------------------------------------------------
+# These declarations match the Vars you pass in from Terratest
+# ---------------------------------------------------------------------------
+
+variable "image_url" {
+  description = "Docker image URI for the service"
+  type        = string
+}
+
+variable "db_username" {
+  description = "Postgres username"
+  type        = string
+}
+
+variable "db_password" {
+  description = "Postgres password"
+  type        = string
+  sensitive   = true
+}
+
+variable "db_name" {
+  description = "Postgres database name"
+  type        = string
+}
+
+# Integration test / Terratest inputs
+variable "image_url" {
+  description = "The ECR image URI (including tag) to deploy"
+  type        = string
+}
+
+variable "db_username" {
+  description = "Postgres username"
+  type        = string
+}
+
+variable "db_password" {
+  description = "Postgres password"
+  type        = string
+  sensitive   = true
+}
+
+variable "db_name" {
+  description = "Postgres database name"
+  type        = string
 }
