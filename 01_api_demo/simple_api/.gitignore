@@ -34,3 +34,4 @@ README.md
 
 **/terraform.tfvars
 infra/terraform.tfvars
+01_api_demo/simple_api/infra/terraform.tfvars
