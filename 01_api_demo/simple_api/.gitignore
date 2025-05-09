@@ -32,4 +32,5 @@ README.md
 !Rakefile
 !config.ru
 
-terraform.tfvars
+**/terraform.tfvars
+infra/terraform.tfvars
