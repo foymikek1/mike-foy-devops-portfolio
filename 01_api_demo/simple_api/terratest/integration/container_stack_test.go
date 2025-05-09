@@ -1,43 +1,46 @@
 package integration
 
 import (
-  "fmt"
-  "testing"
-  "time"
+	"fmt"
+	"testing"
+	"time"
 
-  "github.com/gruntwork-io/terratest/modules/terraform"
-  http_helper "github.com/gruntwork-io/terratest/modules/http-helper"
-  "github.com/stretchr/testify/assert"
+	"github.com/gruntwork-io/terratest/modules/terraform"
+	http_helper "github.com/gruntwork-io/terratest/modules/http-helper"
 )
 
-func TestFullStack(t *testing.T) {
-  t.Parallel()
+func TestContainerStack(t *testing.T) {
+	// Adjust this path so it actually finds your infra folder:
+	// integration/container_stack_test.go → simple_api/infra
+	terraformDir := "../../infra"
 
-  // Points at the root infra folder (where each module is called)
-  opts := &terraform.Options{
-    TerraformDir: "../../infra",
-    Vars: map[string]interface{}{
-      "image_url":           "123456789012.dkr.ecr.us-east-1.amazonaws.com/simple-api:latest",
-      "postgresql_username": "postgres",
-      "postgresql_password": "postgres",
-      "postgresql_database": "simple_api_dev",
-    },
-  }
+	opts := &terraform.Options{
+		TerraformDir: terraformDir,
+		// You can add Vars here if you want to avoid shell exports:
+		// Vars: map[string]interface{}{
+		//     "image_url":        os.Getenv("IMAGE_URL"),
+		//     "db_username":      os.Getenv("POSTGRES_USERNAME"),
+		//     ...
+		// },
+	}
 
-  // Deploys the full stack and schedules cleanup
-  terraform.InitAndApply(t, opts)
-  defer terraform.Destroy(t, opts)
+	// Plan and apply your stack
+	terraform.InitAndApply(t, opts)
+	// Always destroy at the end
+	defer terraform.Destroy(t, opts)
 
-  // Grabs the ALB DNS name from outputs
-  albDNS := terraform.Output(t, opts, "alb_dns_name")
-  assert.NotEmpty(t, albDNS, "Expected alb_dns_name output to be non-empty")
+	// Grab the ALB DNS name from your outputs
+	albDNS := terraform.Output(t, opts, "alb_dns_name")
+	url := fmt.Sprintf("http://%s", albDNS)
 
-  // Constructs the root endpoint URL
-  endpoint := fmt.Sprintf("http://%s/", albDNS)
-
-  // Polls the endpoint until HTTP 200 and body contains "OK"
-  // Adds a nil for the TLS config (since this is plain HTTP)
-  maxRetries := 20
-  sleepBetween := 6 * time.Second
-  http_helper.HttpGetWithRetry(t, endpoint, nil, 200, "OK", maxRetries, sleepBetween)
+	// Now hit it and expect a 200 + “OK” body within 10 retries, 2s apart
+	http_helper.HttpGetWithRetry(
+		t,
+		url,
+		nil,      // no custom TLS
+		200,      // expect HTTP 200
+		"OK",     // expect “OK” in the body
+		10,       // max retries
+		2*time.Second,
+	)
 }
