@@ -3,13 +3,13 @@ variable "name" {
   type        = string
 }
 
-variable "subnet_ids" {
-  description = "A list of subnet IDs to attach the ALB to"
-  type        = list(string)
+variable "vpc_id" {
+  description = "VPC ID for creating the ALB Security Group"
+  type        = string
 }
 
-variable "security_group_ids" {
-  description = "A list of security group IDs to associate with the ALB"
+variable "subnet_ids" {
+  description = "A list of subnet IDs to attach the ALB to"
   type        = list(string)
 }
 

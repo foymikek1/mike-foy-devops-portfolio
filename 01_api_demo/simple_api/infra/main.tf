@@ -1,108 +1,74 @@
-# 1) VPC
-resource "aws_vpc" "main" {
-  cidr_block = var.vpc_cidr
-  tags = { Name = "${var.alb_name}-vpc" }
-}
+terraform {
+  required_version = ">= 1.3.0"
 
-# 2) Public Subnets
-resource "aws_subnet" "public" {
-  count                   = length(var.public_subnet_cidrs)
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = var.public_subnet_cidrs[count.index]
-  availability_zone       = var.azs[count.index]
-  map_public_ip_on_launch = true
-  tags                    = { Name = "${var.alb_name}-public-${count.index}" }
-}
-
-# 3) Internet Gateway + Public Route Table
-resource "aws_internet_gateway" "igw" {
-  vpc_id = aws_vpc.main.id
-  tags   = { Name = "${var.alb_name}-igw" }
-}
-
-resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.main.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.igw.id
-  }
-
-  tags = { Name = "${var.alb_name}-public-rt" }
-}
-
-resource "aws_route_table_association" "public" {
-  count          = length(aws_subnet.public)
-  subnet_id      = aws_subnet.public[count.index].id
-  route_table_id = aws_route_table.public.id
-}
-
-# 4) ALB SG
-resource "aws_security_group" "alb" {
-  name        = "${var.alb_name}-sg"
-  description = "Allow HTTP in"
-  vpc_id      = aws_vpc.main.id
-
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
   }
 }
 
-# 4) Now your service modules
-module "alb" {
-  source             = "./modules/alb"
-  name               = var.alb_name
-  subnet_ids         = aws_subnet.public[*].id
-  security_group_ids = [aws_security_group.alb.id]
-  scheme             = var.scheme
+provider "aws" {
   region = var.region
 }
 
+# ─────────────────────────────────────────────────────────────────────────────
+# 1) VPC Module
+# ─────────────────────────────────────────────────────────────────────────────
+module "vpc" {
+  source              = "./modules/vpc"
+  region              = var.region
+  cidr_block          = var.cidr_block
+  public_subnet_cidrs = var.public_subnet_cidrs
+  public_azs          = var.public_azs
+  vpc_name            = var.prefix
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 2) ECS Cluster Module
+# ─────────────────────────────────────────────────────────────────────────────
+module "ecs_cluster" {
+  source       = "./modules/ecs_cluster"
+  region       = var.region # ← you must pass region here
+  cluster_name = var.prefix
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3) Application Load Balancer Module
+# ─────────────────────────────────────────────────────────────────────────────
+module "alb" {
+  source     = "./modules/alb"
+  region     = var.region # ← and here
+  name       = "${var.prefix}-alb"
+  vpc_id     = module.vpc.vpc_id
+  subnet_ids = module.vpc.public_subnet_ids
+  # security_group_ids = [module.ecs_cluster.security_group_id]
+  scheme = "internet-facing"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 4) ECR Repository Module
+# ─────────────────────────────────────────────────────────────────────────────
 module "ecr" {
   source = "./modules/ecr"
-  name   = var.ecr_name
-  region = var.region
+  region = var.region # ← and here
+  name   = var.prefix
 }
 
-module "ecs_cluster" {
-  source       = "./modules/ecs-cluster"
-  cluster_name = var.cluster_name
-  region = var.region
+# ─────────────────────────────────────────────────────────────────────────────
+# 5) ECS Service Module
+# ─────────────────────────────────────────────────────────────────────────────
+
+module "ecs_service" {
+  source            = "./modules/ecs_service"
+  cluster_name      = module.ecs_cluster.cluster_name
+  image_url         = var.image_url
+  db_username       = var.db_username
+  db_password       = var.db_password
+  db_name           = var.db_name
+  vpc_id            = module.vpc.vpc_id
+  public_subnet_ids = module.vpc.public_subnet_ids
+  alb_listener_arn  = module.alb.listener_arn
+  alb_sg_id         = module.alb.security_group_id
 }
-
-
-
-
-
-# module "alb" {
-#   source             = "./modules/alb"
-#   name               = var.alb_name
-#   subnet_ids         = var.subnet_ids
-#   security_group_ids = var.security_group_ids
-#   scheme             = var.scheme
-#   region             = var.region
-# }
-# 
-# module "ecr" {
-#   source = "./modules/ecr"
-#   name   = var.ecr_name
-#   region = var.region
-# }
-# 
-# module "ecs_cluster" {
-#   source       = "./modules/ecs-cluster"
-#   cluster_name = var.cluster_name
-#   region       = var.region
-# }
-
-

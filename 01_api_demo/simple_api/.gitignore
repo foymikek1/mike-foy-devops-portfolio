@@ -31,3 +31,5 @@ README.md
 !public/
 !Rakefile
 !config.ru
+
+terraform.tfvars
