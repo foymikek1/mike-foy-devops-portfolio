@@ -8,8 +8,8 @@ Welcome to my DevOps portfolio! This repository showcases my work on various Dev
 A simple backend API, containerized with Docker, and deployed to AWS ECS using Terraform.
 
 **Key Features:**  
-- Dockerized REST API with basic endpoints   
-- Terraform managed container stack (ECR, ECS & ALB)  
+- ✅ Dockerized REST API with basic endpoints   
+- ✅ Terraform locally managed container stack (ECR, ECS & ALB)  
 - CI/CD: build & push Docker image, Terraform apply with GitHub Actions  
 
 **Technologies Used:**  
