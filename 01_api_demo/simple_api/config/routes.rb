@@ -7,5 +7,6 @@ Rails.application.routes.draw do
 
   # Defines the root path route ("/")
   # root "posts#index"
-  get "/", to: "welcome#index"
+  get "/api", to: "welcome#index"
+  get "/api/health", to: ->(env) { [200, {"Content-Type"=>"text/plain"}, ["OK"]] }
 end
